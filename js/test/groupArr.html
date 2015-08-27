@@ -1,0 +1,88 @@
+<script type="text/javascript">
+
+function uniqueGroup(oldArr, size){
+	size = size||2;
+	var arrLen=oldArr.length,
+		endLen = arrLen - size + 1,
+		resultArr = [];
+
+
+	function groupArr(arr, start, len){
+		var baseArr = arr.slice();
+		if(len===arrLen){
+			for(var i=start;i<len;i++){
+				var newArr = baseArr.slice();
+				newArr.push(oldArr[i]);
+				resultArr.push(newArr);
+			}
+		}else if(len<arrLen){
+			for(var i=start;i<len;i++){
+				var newArr = baseArr.slice();
+				newArr.push(oldArr[i]);
+				groupArr(newArr, i + 1, len+1);
+			}
+		}
+		
+	}
+
+	groupArr([], 0, endLen);
+
+	return resultArr;
+}
+
+function calNum(arr, size){
+	size = size||2;
+	var arrLen=arr.length,
+		endLen = arrLen - size + 1,
+		num = 0;
+
+
+	function groupArr(start, len){
+		if(len===arrLen){
+			num += len - start;	
+		}else if(len<arrLen){
+			for(var i=start;i<len;i++){
+				groupArr(i + 1, len+1);
+			}
+		}
+	}
+
+	groupArr(0, endLen);
+	return num;
+}
+
+var testArr = ['a', 'b', 'c', 'd', 'e', 'f'],
+	testSize = 6;
+testArr.length = 10;
+document.write(calNum(testArr, testSize));
+document.write('<br>')
+var s = new Date();
+document.write(uniqueGroup(testArr, testSize).length);
+document.write('<br>')
+document.write(new Date() - s)
+
+function autoTest(nums){
+	var testArr=[],
+		testSize;
+	console.log(nums)
+	var len = Math.ceil(Math.random()*nums);
+	testArr.length=len;
+	testSize = Math.floor(Math.random()*len)
+	document.write(uniqueGroup(testArr, testSize).length+':'+calNum(testArr, testSize));
+	document.write('<br>');
+
+	if(nums>2){
+		setTimeout(function(){
+			autoTest(--nums);
+		})
+		
+	}
+
+}
+
+//autoTest(30);
+
+
+
+
+</script>

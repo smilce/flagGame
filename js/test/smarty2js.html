@@ -1,0 +1,481 @@
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<body><pre id='tpl-panel'></pre></body>
+<script type="text/javascript">
+
+var _keywords = ['foreach', '/foreach', 'else', 'if', '/if'];
+var _noCompile = ['Md5ToImageUrl', 'Scheme', 'CouponProductType'];
+
+function _rightBracket(){
+	return '}';
+}
+
+function _getFnTpl(fn){
+	var tpl = fn.toString();
+	return tpl.substring(tpl.indexOf('/*')+2, tpl.indexOf('*/'));
+}
+
+function _compileTpl(tpl, data){
+	return tpl.replace(/\{(\w+)\}/g, function($0, $1){
+		return data[$1]?data[$1]:$1;
+	});
+}
+
+var pipFSM = {
+	'default': function(val, type){
+		switch(val){
+			case 'array()':
+				val = '||[]';
+			break;
+			case '\'\'':
+			case '0':
+				 val = type=='if' ? '' : '||'+val;
+			break;
+			default:
+				val = '||'+val;
+			break;
+		}
+		return val;
+	},
+	'date_format': function(val, type, fnVal, pips){
+		pips[0]='date_format('+ fnVal + ',' + val + ')';
+		return '';
+	}
+}
+
+
+function _comilePip(items){
+	var type = items[0];
+	items.forEach(function(item, index){
+		var pips = item.split('|');
+		pips.forEach(function(pip, pipIndex){
+			var keys = pip.split(':');
+			if(keys.length >1&&pipFSM[keys[0]]){
+				pips[pipIndex] = pipFSM[keys[0]](keys[1], type, pips[0],  pips);
+			}
+		});
+		items[index] = pips.join('');
+	});
+}
+
+var _tpl ={
+	"foreach_array": _getFnTpl(function(){
+/* var $forObj={forObj};
+	for(var $key=0,$item;$item=$forObj[$key];$key++){ 
+		var ${valueAlias}=$item;*/
+	}),
+	"foreach_object": _getFnTpl(function(){
+/* 
+var $forObj={forObj};
+for(var $key in $forObj){
+	var $item,${valueAlias};
+	$item=${valueAlias}=$forObj[$key];
+*/
+	})
+}
+
+
+
+
+var _keywordsFSM = {
+	"foreach": function(items){
+		var tpl = _tpl['foreach_'+items[items.length-1]],
+			data = {};
+		items.forEach(function(item, index){
+			if(index!==0){
+				item = item.split('=');
+				switch(item[0]){
+					case 'from':
+						data.forObj = item[1].substring(0, item[1].indexOf('|'));
+					break;
+					case 'item':
+						data.valueAlias = item[1];
+					break;
+					case 'as':
+						data.forObj = items[index-1];
+					break;
+				}
+			}
+		});
+		return _compileTpl(tpl, data);
+	},
+	"if": function(items){
+		return 'if(' +items.slice(1).join(' ') + '){';
+	},
+	"else": function(){
+		return '}else{'
+	},	
+	"/if": _rightBracket,
+	"/foreach": _rightBracket
+}
+
+function _isKeyWord(str){
+	return _keywords.indexOf(str)>-1;
+};
+
+function _isNoCompile(str){
+	return _noCompile.indexOf(str)>-1;
+};
+
+function _isSystem(str){
+	return str.indexOf('::')>-1;
+}
+
+function searchToken(str, result){
+	result = result||[];
+	var start = str.indexOf('{='),
+		end =  str.indexOf('=}'),
+		pre,
+		cur;
+
+	if(start===-1||end===-1){
+		result.push({
+			pre: str
+		});
+	}else{
+		pre = str.substr(0, start);
+		cur = str.substring(start + 2,  end);
+		str = str.substr(end + 2);
+		result.push({
+			pre: pre,
+			cur: cur
+		});
+		searchToken(str, result);
+	}
+	return result;
+}
+
+var _panelTpl = _getFnTpl(function(){
+/* 
+<textarea style="display: none;" id="tpl-{name}" data-role="tpl">
+{content}
+</textarea>
+*/
+	})
+function compile(str, name){
+	var compileStr = '',
+		tokens = searchToken(str);
+	for(var i=0,token;token=tokens[i];i++){
+		compileStr += token.pre;
+		if(token.cur){
+			var cur = token.cur,
+				items = cur.split(/\s+/),
+				type = items[0];
+
+			_comilePip(items);
+			cur = items.join(' ');
+			if(_isKeyWord(type)){
+				compileStr+='<%' + _keywordsFSM[type](items) +'%>';
+			}else if(_isNoCompile(type)||_isSystem(type)){
+				compileStr += '{=' + cur + '=}';
+			}else{
+				compileStr += '<%=' + cur + '%>';
+			}
+		}
+	}
+	return _compileTpl(_panelTpl, {
+		name: name,
+		content: compileStr
+	});
+}
+
+function testStr(){
+/* 
+{=$coupons=$data.coupon.datas|default:array()=}
+{=if $data.coupon.count|default:0 != 0=}
+<div class="blk10"></div>
+<section class="whiteBg borderT">
+<div class="hotShop">
+	<h2 class="pdlr10">优惠券</h2>
+	<ul class="hotShopList borderT">
+	{=foreach $coupons as $key=>$item array=}
+		<li>
+			<a href="{=Scheme::PROJECT_NAME=}://{=Scheme::COUPON_PRODUCT_DETAIL=}?cid={=$item.product_id|default:''=}&type={=CouponProductType::COUPON_PRODUCT=}">
+				<span class="img"><img src="{=Md5ToImageUrl picid=$item.icon norm=PicNorm::PIC_NORM_120=}"></span>
+				<span class="title">
+					<span class="name">{=$item.title|default:''=}</span>
+					{=if $item.pay_type == 2=}
+						<font class="mr10 red">{=$item.sale_price=}积分</font>
+						<span class="number">已兑{=$item.sale_num|default:''=}</span>
+					{=else=}
+						<span class="price">
+							<span class="new red">&yen;<strong>{=$item.sale_price|default:''=}</strong></span>
+							{=if !empty($item.ori_price)=}
+							<span class="old">&yen;<del>{=$item.ori_price|default:''=}</del></span>
+							{=/if=}
+						<span class="number">已售{=$item.sale_num|default:''=}</span>
+					{=/if=}
+					</span>
+				</span>
+			</a>
+		</li>
+	{=/foreach=}
+	</ul>
+	{=if $data.coupon.count|default:0 > 2=}
+	<a href="{=Scheme::PROJECT_NAME=}://{=Scheme::COUPON_PRODUCT_LIST=}?storeid={=$detail.storeId|default:''=}" class="barMore borderB">查看全部{=$data.coupon.count=}张优惠券<i class="iconfont fr gray">&#xe601;</i></a>
+	{=/if=}
+</div>
+</section>
+<div class="blk10"></div>
+{=/if=}
+
+
+{=$activities=$data.activity.datas|default:array()=}
+{=if $data.activity.count|default:0 != 0=}
+<section class="whiteBg borderT">
+<div class="hotShop">
+	<h2 class="pdlr10">活动</h2>
+	<ul class="hotShopList cpList borderT">
+	{=foreach $activities as $key=>$item array=}
+		<li>
+			<a href="{=Scheme::PROJECT_NAME=}://{=Scheme::ACITIVY_DETAIL=}?aid={=$item.product_id|default:''=}">
+				<span class="img"><img src="{=Md5ToImageUrl picid=$item.icon norm=PicNorm::PIC_NORM_120=}"></span>
+				<span class="title">
+					<span class="name">{=$item.title|default:''=}</span>
+					<span class="subname">{=$item.subTitle|default:''=}</span>
+					<span class="data">活动日期 {=($item.begin_time_l/1000)|date_format:"%Y.%m.%d"=} - {=($item.end_time_l/1000)|date_format:"%Y.%m.%d"=}</span>
+				</span>
+			</a>
+		</li>
+	{=/foreach=}
+	</ul>
+	{=if $data.activity.count|default:0 > 2=}
+		<a href="{=Scheme::PROJECT_NAME=}://{=Scheme::ACTIVITY_LIST=}?storeid={=$detail.storeId|default:''=}" class="barMore">查看全部{=$data.activity.count=}个活动<i class="iconfont fr gray">&#xe601;</i></a>
+	{=/if=}
+</div>
+</section>
+<div class="blk10"></div>
+{=/if=}
+
+{=$goods=$data.goods.datas|default:array()=}
+{=if $data.goods.count|default:0 != 0=}
+<section class="whiteBg borderT">
+<div class="hotShop">
+	<h2 class="pdlr10">商品</h2>
+	<ul class="hotShopList borderT">
+	{=foreach $goods as $key=>$item array=}
+		<li>
+			<a href="{=Scheme::PROJECT_NAME=}://{=Scheme::GOODS_DETAIL=}?id={=$item.product_id|default:''=}">
+				<span class="img"><img src="{=Md5ToImageUrl picid=$item.icon norm=PicNorm::PIC_NORM_120=}"></span>
+				<span class="title">
+					<span class="name">{=$item.title|default:''=}</span>
+					<span class="price">
+						<span class="new red">&yen;<strong>{=$item.sale_price|default:''=}</strong></span>
+					</span>
+					<span class="number">已售{=$item.sale_num|default:''=}</span>
+				</span>
+			</a>
+		</li>
+	{=/foreach=}
+	</ul>
+	{=if $data.goods.count|default:0 > 2=}
+	<a href="{=Scheme::PROJECT_NAME=}://{=Scheme::GOODS_LIST=}?storeid={=$detail.storeId|default:''=}" class="barMore borderB">查看全部{=$data.goods.count=}个商品<i class="iconfont fr gray">&#xe601;</i></a>
+	{=/if=}
+</div>
+</section>
+{=/if=}
+*/
+}
+
+function fnStr(){
+/*
+var tplCache = {};
+function loadData(){
+	var tpl = "{tpl}";
+    if(!tplCache[tpl]){
+        tplCache[tpl] = _.template($("#"+tpl).text());
+    }
+    tpl = tplCache[tpl];
+    $.ajax({
+        url: "{url}",
+        dataType: "{type}",
+        success: function (result) {
+           	{filter}
+            $("#{panel}").html($("#{panel}").html()+ptpl({data}));;
+            tpl = null;
+        }
+    });
+}
+ */
+}
+
+function compileFn(fn, arg){
+	var filterFn = arg.filter.toString(),
+		filter = filterFn.substring(filterFn.indexOf("{")+1, filterFn.lastIndexOf("return")),
+		data = filterFn.substring(filterFn.lastIndexOf("return") +6 , filterFn.lastIndexOf("}")).trim().replace(/^[^\w|$|_]+|[^\w|\b|$|_]+$/g, '')
+	var str = _compileTpl(_getFnTpl(fnStr), {
+		url: arg.url,
+	    tpl: arg.tpl,
+	    panel: arg.panel,
+	    type: arg.type,
+	    filter: filter,
+	    data: data
+	});
+
+
+	return str;
+}
+
+var winConsole = window.console;
+window.console = {
+	log: function(text){
+
+		winConsole.log(text);
+		document.getElementById('tpl-panel').textContent += text;
+
+	}
+}
+
+function build(tpl, fn, id, config){
+	console.log(compile(_getFnTpl(tpl), id));
+	console.log(compileFn(fn, config, id));
+}
+
+build(testStr, fnStr, 'merchant', {
+	url: 'http://10.1.169.16:12620/ajax/app/merchantcoupon?storeid=207534',
+    tpl: 'tpl-merchant',
+    panel: 'merchant-panel',
+    type: 'jsonp',
+    filter: function(result){
+		var data;
+		if(result.status === 0){
+			data = {
+				$data: result.data,
+				date_format: function(data, format){
+					format = format.replace('%Y', 'yyyy').replace('%m', 'MM').replace('%d', 'dd');
+				    data = new Date();
+				    var o = {
+				    "M+" : date.getMonth()+1, //month
+				    "d+" : date.getDate(), //day
+				    "h+" : date.getHours(), //hour
+				    "m+" : date.getMinutes(), //minute
+				    "s+" : date.getSeconds(), //second
+				    "q+" : Math.floor((date.getMonth()+3)/3), //quarter
+				    "S" : date.getMilliseconds() //millisecond
+				    }
+				    if(/(y+)/.test(format)) format=format.replace(RegExp.$1,
+				    (date.getFullYear()+"").substr(4- RegExp.$1.length));
+				    for(var k in o)if(new RegExp("("+ k +")").test(format))
+				    format = format.replace(RegExp.$1,
+				    RegExp.$1.length==1? o[k] :
+				    ("00"+ o[k]).substr((""+ o[k]).length));
+				    return format;
+				}
+			}
+		}
+		return data;
+    }
+});
+
+
+console.log()
+
+</script>
+
+
+
+ 
+ 
+ 
+<textarea style="display: none;" id="tpl-merchant" data-role="tpl">
+ 
+<%=$coupons=$data.coupon.datas||[]%>
+<%if($data.coupon.count != 0){%>
+<div class="blk10"></div>
+<section class="whiteBg borderT">
+<div class="hotShop">
+	<h2 class="pdlr10">优惠券</h2>
+	<ul class="hotShopList borderT">
+	<% var $forObj=$coupons;
+	for(var $key=0,$item;$item=$forObj[$key];$key++){ 
+		var $valueAlias=$item;%>
+		<li>
+			<a href="{=Scheme::PROJECT_NAME=}://{=Scheme::COUPON_PRODUCT_DETAIL=}?cid=<%=$item.product_id||''%>&type={=CouponProductType::COUPON_PRODUCT=}">
+				<span class="img"><img src="{=Md5ToImageUrl picid=$item.icon norm=PicNorm::PIC_NORM_120=}"></span>
+				<span class="title">
+					<span class="name"><%=$item.title||''%></span>
+					<%if($item.pay_type == 2){%>
+						<font class="mr10 red"><%=$item.sale_price%>积分</font>
+						<span class="number">已兑<%=$item.sale_num||''%></span>
+					<%}else{%>
+						<span class="price">
+							<span class="new red">&yen;<strong><%=$item.sale_price||''%></strong></span>
+							<%if(!empty($item.ori_price)){%>
+							<span class="old">&yen;<del><%=$item.ori_price||''%></del></span>
+							<%}%>
+						<span class="number">已售<%=$item.sale_num||''%></span>
+					<%}%>
+					</span>
+				</span>
+			</a>
+		</li>
+	<%}%>
+	</ul>
+	<%if($data.coupon.count > 2){%>
+	<a href="{=Scheme::PROJECT_NAME=}://{=Scheme::COUPON_PRODUCT_LIST=}?storeid=<%=$detail.storeId||''%>" class="barMore borderB">查看全部<%=$data.coupon.count%>张优惠券<i class="iconfont fr gray">&#xe601;</i></a>
+	<%}%>
+</div>
+</section>
+<div class="blk10"></div>
+<%}%>
+
+
+<%=$activities=$data.activity.datas||[]%>
+<%if($data.activity.count != 0){%>
+<section class="whiteBg borderT">
+<div class="hotShop">
+	<h2 class="pdlr10">活动</h2>
+	<ul class="hotShopList cpList borderT">
+	<% var $forObj=$activities;
+	for(var $key=0,$item;$item=$forObj[$key];$key++){ 
+		var $valueAlias=$item;%>
+		<li>
+			<a href="{=Scheme::PROJECT_NAME=}://{=Scheme::ACITIVY_DETAIL=}?aid=<%=$item.product_id||''%>">
+				<span class="img"><img src="{=Md5ToImageUrl picid=$item.icon norm=PicNorm::PIC_NORM_120=}"></span>
+				<span class="title">
+					<span class="name"><%=$item.title||''%></span>
+					<span class="subname"><%=$item.subTitle||''%></span>
+					<span class="data">活动日期 <%=date_format(($item.begin_time_l/1000),"%Y.%m.%d")%> - <%=date_format(($item.end_time_l/1000),"%Y.%m.%d")%></span>
+				</span>
+			</a>
+		</li>
+	<%}%>
+	</ul>
+	<%if($data.activity.count > 2){%>
+		<a href="{=Scheme::PROJECT_NAME=}://{=Scheme::ACTIVITY_LIST=}?storeid=<%=$detail.storeId||''%>" class="barMore">查看全部<%=$data.activity.count%>个活动<i class="iconfont fr gray">&#xe601;</i></a>
+	<%}%>
+</div>
+</section>
+<div class="blk10"></div>
+<%}%>
+
+<%=$goods=$data.goods.datas||[]%>
+<%if($data.goods.count != 0){%>
+<section class="whiteBg borderT">
+<div class="hotShop">
+	<h2 class="pdlr10">商品</h2>
+	<ul class="hotShopList borderT">
+	<% var $forObj=$goods;
+	for(var $key=0,$item;$item=$forObj[$key];$key++){ 
+		var $valueAlias=$item;%>
+		<li>
+			<a href="{=Scheme::PROJECT_NAME=}://{=Scheme::GOODS_DETAIL=}?id=<%=$item.product_id||''%>">
+				<span class="img"><img src="{=Md5ToImageUrl picid=$item.icon norm=PicNorm::PIC_NORM_120=}"></span>
+				<span class="title">
+					<span class="name"><%=$item.title||''%></span>
+					<span class="price">
+						<span class="new red">&yen;<strong><%=$item.sale_price||''%></strong></span>
+					</span>
+					<span class="number">已售<%=$item.sale_num||''%></span>
+				</span>
+			</a>
+		</li>
+	<%}%>
+	</ul>
+	<%if($data.goods.count > 2){%>
+	<a href="{=Scheme::PROJECT_NAME=}://{=Scheme::GOODS_LIST=}?storeid=<%=$detail.storeId||''%>" class="barMore borderB">查看全部<%=$data.goods.count%>个商品<i class="iconfont fr gray">&#xe601;</i></a>
+	<%}%>
+</div>
+</section>
+<%}%>
+
+</textarea>

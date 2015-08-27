@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>前端测试框架</title>
+<meta name="keywords" content="">
+<meta name="description" content="">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="format-detection" content="telephone=no"/>
+<link rel="stylesheet" href="css/default.css"> 
+<link rel="stylesheet" href="css/iconfont3/iconfont.css"> 
+</head>
+<body>
+<div class='layout-main'>
+
+	<div class='wrap' id='main-run'>
+
+		<div class='game-scene' id='game-scene' style='display: none;'>
+			<div id='game-header'>
+				<div id='game-command'>
+					<span class='topic-choice' id='reset-topic' data-name='重玩本关'><i class="icon iconfont">&#xe613;</i></span>
+					<span class='topic-choice' id='back-choice' data-name='重选关卡'><i class="icon iconfont">&#xe61b;</i></span>
+					<span class='topic-choice' id='to-main' data-name='主菜单'><i class="icon iconfont">&#xe603;</i></span>
+					<i class="icon iconfont" data-name='本题倒计时'>&#xe619;</i><span id='countdown-step'></span>
+					<span id='remind-items'>
+						<span data-bind='visible: continueRight() !== undefined'>
+							连对：<span data-bind='text: continueRight'></span>
+						</span>
+						<span data-bind='visible: right() !== undefined'>
+							<i class="icon iconfont" data-name='答对'>&#xe600;</i>：<span data-bind='text: right'></span>
+						</span>
+					</span>
+				</div>
+				<div id='star-panel'>
+					<ul id='major-pass' class='star-panel star-panel-major' data-bind="foreach: major">
+						<li class="star-condition">
+							<div class="star-text">
+								<p class="star-text-content">
+									<span data-bind='text: userValue '></span>
+									<span data-bind='if: value'>
+										/<span data-bind='text: value'></span>
+									</span>
+								</p>
+								<p class="star-text-title" data-bind='text: title'></p>
+							</div>
+							<div class="star-image" data-bind='style: { bottom: percent}'></div>
+						</li>	
+					</ul>
+					<ul id='star-pass' class='star-panel' data-bind="foreach: star">
+						<li class="star-condition">
+							<div class="star-text">
+								<p class="star-text-content">
+									<span data-bind='text: userValue() '></span>
+									<span data-bind='if: $data.value'>
+										/<span data-bind='text: value'></span>
+									</span>
+								</p>
+								<p class="star-text-title" data-bind='text: title'></p>
+							</div>
+							<div class="star-image" data-bind='style: { bottom: percent}'></div>
+						</li>	
+					</ul>
+				</div>
+				<div id='process-wrap' class='process-wrap' data-bind='if: $data.maxStep' style='display: none;'>
+					<div class='process-bar' data-bind='style: { width: $data.per() + "%" }'></div>
+					<span class='process-text' data-bind='text: $data.per() + "%"'></span>
+				</div>
+				<div id='process-time-wrap' class='process-wrap' data-bind='visible: $data.totalTime' style='display: none;'>
+					<div class='process-bar' data-bind='style: { width: $data.per() + "%" }'></div>
+					还剩<span class='process-text' data-bind='text: $data.showTime'></span>
+				</div>
+			</div>
+			<div id='game-question'>
+				<h2 id='game-title' class='game-title'></h2>
+				<div id='game-details' class='game-details'></div>
+			</div>
+			<div class='game-options' id='game-options'>
+			</div>
+			<div id='game-footer'>
+				<ul class='user-tool-wrap' id='user-tool' data-bind="foreach: data">
+					<li class='user-tool-item' data-bind='attr: { "pt-click": name }'>
+						<p class='user-tool-num' data-bind='text: num'></p>
+						<p class='user-tool-name'>
+							<i class="icon iconfont" data-bind='html: icon'></i>
+						</p>
+					</li>
+				</ul>
+				<button id='game-submit'>提交</button>
+				<span id='game-next-panel' style='display: none;'>
+					<button id='game-next'>已过关条件，点击进入下一关</button>
+				</span>
+			</div>
+			<div id='game-tip'>
+			</div>
+		</div>	
+
+		<div class='game-choice' id='game-choice' style='display: none;'>
+			<ul class='topic-list' id='topic-list'></ul>
+		</div>
+
+		<div class='game-choice' id='choice-model' style='display: none;'>
+			<h1 class='h1'>前端测试框架</h1>
+			<ul class='topic-list choice-model-list' id='choice-model-list'>
+			<textarea id='choice-model-tpl'>
+				<%for(var i=0,d;d=data[i];i++){%>
+					<li class='choice-model-wrap<%=d.canPlay ? "": " disabled" %>' role-type='<%=d.choiceName%>'>
+						<div class='choice-model-item'>
+							<div class='choice-model-icon'>
+								<i class="icon iconfont"><%=d.icon%></i>
+							</div>
+							<div class='choice-model-name'>
+								<%=d.name%>
+							</div>
+						</div>
+					</li>
+				<%}%>
+			</textarea>
+			</ul>
+		</div>
+
+		<div class='game-choice' id='choice-adventure' style='display: none;'>
+			<ul class='topic-list' id='choice-adventure-list'>
+			<textarea id='choice-adventure-tpl'>
+				<%for(var i=0,d;d=data[i];i++){%>
+					<li class='topic<%=d.canPlay ? "": " disabled" %>' role-step='<%=d.index%>'>
+						<%=d.name%>
+					</li>
+				<%}%>
+			</textarea>
+			</ul>
+		</div>
+
+		<div class='game-choice' id='choice-endless' style='display: none;'>
+			<ul class='topic-list' id='choice-endless-list'>
+			<textarea id='choice-endless-tpl'>
+				<%for(var i=0,d;d=data[i];i++){%>
+					<li class='topic<%=d.canPlay ? "": " disabled" %>' role-step='<%=d.index%>'>
+						<%=d.name%>
+					</li>
+				<%}%>
+			</textarea>
+			</ul>
+		</div>
+
+		<div class='game-choice' id='choice-challenge' style='display: none;'>
+			<ul class='topic-list' id='choice-challenge-list'>
+			<textarea id='choice-challenge-tpl'>
+				<%for(var i=0,d;d=data[i];i++){%>
+					<li class='topic<%=d.canPlay ? "": " disabled" %>' role-step='<%=d.index%>'>
+						<%=d.name%>（限时90秒）
+					</li>
+				<%}%>
+			</textarea>
+			</ul>
+		</div>
+
+	</div>
+
+	<div class='main-menu-wrap' id='main-menu'>
+		<ul class='main-menu-list'>
+			<li class='main-menu-item' pt-click='main' data-name='首页'>
+				<i class="icon iconfont">&#xe603;</i>
+			</li>
+			<li class='main-menu-item' data-name='攻略'>
+				<i class="icon iconfont">&#xe609;</i>
+			</li>
+			<li class='main-menu-item' data-name='活动'>
+				<i class="icon iconfont">&#xe60b;</i>
+			</li>
+			<li class='main-menu-item' data-name='商城'>
+				<i class="icon iconfont">&#xe60f;</i>
+			</li>
+			<li class='main-menu-item' data-name='设置'>
+				<i class="icon iconfont">&#xe60c;</i>
+			</li>
+		</ul>
+	</div>
+
+</div>
+
+<div class='window-tip' id='window-tip' style='display: none;'>
+	<div class='wrap'>
+		<!-- 游戏引导 start -->
+	   	<div id='star-guide' class='star-guide tip'>
+			<div id='star-guide-detail'>
+				<textarea id='star-guide-tpl'>
+					<h2><%=title%></h2>
+					<p><%=intro%></p>
+					<%if(major){%>
+			   		<h3>通关条件</h3>
+			   		<ul>
+			   			<%for(var i=0,d;d=major[i];i++){%>
+			   			<li><%=d.intro||d.title%></li>
+			   			<%}%>
+			   		</ul>
+			   		<%}%>
+			   		<%if(major){%>
+			   		<h3>完成以下任务获得更多的星</h3>
+			   		<ul>
+			   			<%for(i=0;d=star[i];i++){%>
+			   			<li><%=d.intro||d.title%></li>
+			   			<%}%>
+			   		</ul>
+			   		<%}%>
+				</textarea>
+			</div>
+	   		<p>集中注意力，一起认国旗，让知识燃烧你的大脑吧！</p>
+	   		<p id='star-guide-tool'>
+	   			<button pt-click='start'>继续</button>
+	   			<button pt-click='back'>取消</button>
+	   		</p>
+	  	</div>
+	  	<!-- 游戏引导 end -->
+
+	  	<!-- 游戏过关提示 start -->
+	  	<div id='pass-tip' class='pass-tip tip'>
+	  		<div id='pass-tip-detail'>
+	  			<textarea id='pass-tip-tpl'>
+  				<h3><%=intro%></h3>
+  				<%if(hasPass){%>
+		  		<ul>
+		  			<%for(var i=1;i<=starLen;i++){%>
+		  				<li class='pass-tip-star<%= i<=starGetLen ? " enable" : '' %>'></li>
+		  			<%}%>
+		  		</ul>
+		  		<%}%>
+	  			</textarea>
+	  		</div>
+	  		<div id='pass-tip-tool'>
+	  			<button data-bind='visible: hasPass' pt-click='nextTopic'>下一关</button>
+	  			<button pt-click='reset'>重新开始</button>
+	  			<button pt-click='back'>其他关卡</button>
+	  			<button pt-click='main'>主菜单</button>
+	  		</div>
+
+	  	</div>
+	  	<!-- 游戏过关提示 end -->
+
+	  	<div id='reset-tip' class='reset-tip tip'>
+	  		<div id='reset-tip-detail'>
+	  			<textarea id='reset-tip-tpl'>
+	  				<h3>游戏已结束</h3>
+	  			</textarea>
+	  		</div>
+	  		<div id='reset-tip-tool'>
+	  			<button pt-click='reset'>重新开始</button>
+	   			<button pt-click='back'>取消</button>
+	  		</div>
+	  	</div>
+	</div>
+</div>
+
+<div class='recent-tip' id='recent-tip' style='display: none;'>
+	<div class='wrap'>
+		<h3>检测到你上次玩到第<span id='recent-topic'></span>关，是否继续？</h3>
+		<p class='recent-tip-tools'>
+			<button class='recent-tip-tool' id='recent-go'>继续</button>
+			<button class='recent-tip-tool' id='recent-cancel'>取消</button>
+		</p>
+	</div>
+</div>
+
+<textarea id='tpl-star'>
+	<%for(var i=0,d;d=conditions[i];i++){%>
+		<li class="star-condition">
+			<div class="star-text">
+				<p class="star-text-title"><%=d.title%></p>
+				<p class="star-text-content">
+					<span data-bind='text: <%=d.id%> '></span>
+					<%if(d.value){%>
+					<span>/<%=d.value%></span>
+					<%}%>
+				</p>
+			</div>
+			<div class="star-image" data-bind='style: { bottom: -(100-Math.floor((<%=d.id%>()/<%=d.value%>>1?1:<%=d.id%>()/<%=d.value%>)*100))+"%"}'></div>
+		</li>
+	<%}%>	
+</textarea>
+<textarea id='tpl-choice'>
+	<%for(var i=0,d;d=data[i];i++){%>
+		<li class='topic<%=d.canPlay ? "": " disabled" %>' role-step='<%=d.index%>'>
+			<div class='pass-topic'>
+				<span class='pass-name'><%=d.index%></span>
+				<%if(d.canPlay){%>
+				<p class='pass-stars'>
+	  			<%for(var j=1;j<=d.allStar;j++){%>
+	  				<span class='pass-tip-star<%= j<=d.getStar ? " enable" : '' %>'></span>
+	  			<%}%>
+	  			</p>
+				<%}%>
+			</div>
+		</li>
+	<%}%>
+</textarea>
+
+<textarea id='t1-details'>
+	<div class='t1-guoqi-wrap' style='background-image:url(<%=data.image%>);'>
+	</div>
+</textarea>
+<textarea id='t1-options'>
+	<ul class='t1-op-list' id='options-wrap'>
+	<%for(var i=0,d;d=data[i];i++){%>
+		<li class='t1-op-item'>
+			<label class='t1-op-lable option-wrap'>
+				<input class='t1-op-radio option-radio' type='radio' name='topic-item' value='<%=d.index%>'  pt-click='submit' /><%=d.name%>
+				<span class="option-selected"></span>
+			</label>
+		</li>
+	<%}%>
+	</ul>
+</textarea>
+
+<textarea id='t2-details'>
+	<p class='t2-title'>请选择<strong class='red'><%=data.name%></strong>的国旗</p>
+</textarea>
+<textarea id='t2-options'>
+	<ul class='t2-op-list' id='options-wrap'>
+	<%for(var i=0,d;d=data[i];i++){%>
+		<li class='t2-op-item'>	
+			<label class='t2-op-wrap' for='t2-op-radio<%=d.index%>'>
+				<input class='t2-op-radio' type='radio' name='topic-item' value='<%=d.index%>' id='t2-op-radio<%=d.index%>'  pt-click='submit' />
+				<span class='t2-op-mask'></span>
+				<img class='t2-op-image' src='<%=d.image%>' />
+			</label>
+		</li>
+	<%}%>
+	</ul>
+</textarea>
+
+<textarea id='input-len-word-options'>
+	<ul id='iw-op-inputs' class='iw-op-inputs'>
+	<%for(var i=0;i<answerLen;i++){%>
+		<li class='iw-op-item'>	
+		</li>
+	<%}%>
+	</ul>
+	<input type='hidden' id='topic-item-input' />
+	<ul class='iw-op-list' id='iw-op-list'>
+	<%for(var i=0,d;d=data[i];i++){%>
+		<li class='iw-op-item' data-word='<%=d%>' pt-click='inputByClick'>	
+			<%=d%>
+		</li>
+	<%}%>
+	</ul>
+</textarea>
+
+<textarea id='input-word-options'>
+	<input type='text' id='topic-item-input' readonly=true />
+	<ul class='iw-op-list' id='iw-op-list'>
+	<%for(var i=0,d;d=data[i];i++){%>
+		<li class='iw-op-item' data-word='<%=d%>' pt-click='inputByClick'>	
+			<%=d%>
+		</li>
+	<%}%>
+	</ul>
+</textarea>
+
+<textarea id='input-options'>
+	<input type='text' id='topic-item-input' />
+</textarea>
+
+
+<textarea id='slice2-details'>
+	<div id='slice2-wrap' class='slice2-wrap'></div>
+</textarea>
+
+<textarea id='slice2-item-tpl'>
+	<ul class='slice2-item-wrap flag-wrap'>
+	<%for(var i=0,d,preD;d=data[i];i++){%>
+		<li class='slice2-item' style='height:<%=panelHeight%>px;width:<%=d.width%>px; background-image: url(<%=d.url%>);background-position-x: <%=d.preWidth%>px;'>
+		</li>
+	<%}%>
+	</ul>
+</textarea>
+
+<textarea id='op-multRadio'>
+	<ul class='op-multRadio-list' id='options-wrap'>
+	<%for(var i=0,d;d=data[i];i++){%>
+		<li class='op-multRadio-item t1-op-item'>
+			<label class='t1-op-lable option-wrap'>
+				<input class='t1-op-radio option-radio' type='radio' name='topic-item' value='<%=d.index.join(";")%>' pt-click='submit' /><%=d.name.join(';')%>
+				<span class="option-selected"></span>
+			</label>
+		</li>
+	<%}%>
+	</ul>
+</textarea>
+<textarea id='lack-details'>
+	<div class='lack-wrap'>
+		<div class='lack-flag flag-wrap' id='lack-flag'>
+			<img class='lack-flag-img' id='lack-flag-img' src="" />
+		</div>
+	</div>
+</textarea>
+<textarea id='overlying-details'>
+	<ul class='overlying-wrap flag-wrap'>
+		<%for(var i=0,d;d=data[i];i++){%>
+		<li class='overlying-flag cover' style="background-image: url(<%=d.flag%>);"></li>
+		<%}%>
+	</ul>
+</textarea>
+
+<script type='text/javascript' src='./js/lib/knockout.js'></script>
+<script type="text/javascript" src="./js/lib/require.js" data-main="./js/index"></script>
+</body>
